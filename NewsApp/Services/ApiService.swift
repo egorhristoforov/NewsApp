@@ -57,8 +57,8 @@ class BaseApiService {
     fileprivate func callAPIRequest<T: BaseMappable>(request: APIRequest) -> Observable<T> {
         RxAlamofire.requestJSON(request.method, request.path, parameters: request.parameters, encoding: request.encoding, headers: request.headers)
             .flatMap { (_, json) -> Observable<T> in
-                guard let json = json as? [String: Any] else { return .error(ApiError.noData)}
-                guard let model = Mapper<T>().map(JSON: json) else { return .error(ApiError.convertError) }
+                guard let json = json as? [String: Any] else { throw ApiError.noData }
+                guard let model = Mapper<T>().map(JSON: json) else { throw ApiError.convertError }
                 
                 return .just(model)
             }

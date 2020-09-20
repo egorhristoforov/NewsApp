@@ -20,6 +20,12 @@ class CategoryView: UITableViewController {
         return view
     }()
     
+    private let errorModalView: ModalView = {
+        let view = ModalView(title: "Categories error", description: "An error was recieved. Try again later.", buttonText: "Retry")
+        
+        return view
+    }()
+    
     private let activityIndicator: UIActivityIndicatorView = {
         let view = UIActivityIndicatorView(style: .gray)
         view.hidesWhenStopped = true
@@ -63,6 +69,7 @@ class CategoryView: UITableViewController {
     
     private func setupViews() {
         view.addSubview(emptyStateModalView)
+        view.addSubview(errorModalView)
         view.addSubview(activityIndicator)
     }
     
@@ -72,6 +79,12 @@ class CategoryView: UITableViewController {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
+            make.width.equalToSuperview().offset(-40)
+            make.centerX.equalToSuperview()
+            make.top.equalToSuperview().offset(20)
+        }
+        
+        errorModalView.snp.makeConstraints { (make) in
             make.width.equalToSuperview().offset(-40)
             make.centerX.equalToSuperview()
             make.top.equalToSuperview().offset(20)
@@ -107,6 +120,15 @@ class CategoryView: UITableViewController {
         viewModel.output.isEmptyArticlesList
             .map { !$0 }
             .drive(emptyStateModalView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        viewModel.output.isArticlesLoadingError
+            .map { !$0 }
+            .drive(errorModalView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        errorModalView.button.rx.tap
+            .bind(to: viewModel.input.retry)
             .disposed(by: disposeBag)
         
         if let refreshControl = refreshControl {

@@ -32,11 +32,25 @@ class ModalView: UIView {
         return label
     }()
     
-    init(title: String, description: String) {
+    let button: UIButton = {
+        let button = UIButton()
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.setTitleColor(UIColor.white.withAlphaComponent(0.7), for: .highlighted)
+        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
+        button.layer.cornerRadius = 10
+        
+        return button
+    }()
+    
+    init(title: String, description: String, buttonText: String? = nil) {
         super.init(frame: .zero)
         
         titleLabel.text = title
         descriptionLabel.text = description
+        button.setTitle(buttonText, for: .normal)
+        
+        button.isHidden = buttonText == nil
         
         setupViews()
         setupLayout()
@@ -49,6 +63,7 @@ class ModalView: UIView {
     private func setupViews() {
         addSubview(titleLabel)
         addSubview(descriptionLabel)
+        addSubview(button)
     }
     
     private func setupLayout() {
@@ -62,7 +77,14 @@ class ModalView: UIView {
             make.top.equalTo(titleLabel.snp.bottom).offset(5)
             make.leading.equalToSuperview().offset(10)
             make.trailing.equalToSuperview().offset(-10)
+        }
+        
+        button.snp.makeConstraints { (make) in
+            make.leading.equalToSuperview().offset(30)
+            make.trailing.equalToSuperview().offset(-30)
+            make.height.equalTo(40)
             make.bottom.equalToSuperview().offset(-5)
+            make.top.equalTo(descriptionLabel.snp.bottom).offset(15)
         }
     }
     

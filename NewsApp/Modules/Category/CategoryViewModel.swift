@@ -26,10 +26,12 @@ class CategoryViewModel: ViewModel {
         let close: AnyObserver<Void>
         let selectedArticle: AnyObserver<Article>
         let changeFavoriteStatus: AnyObserver<Article>
+        let retry: AnyObserver<Void>
     }
     
     private let refreshSubject = PublishSubject<Void>()
     private let changeFavoriteStatusSubject = PublishSubject<Article>()
+    private let retrySubject = PublishSubject<Void>()
     
     let closeSubject = PublishSubject<Void>()
     let selectedArticleSubject = PublishSubject<Article>()
@@ -43,11 +45,13 @@ class CategoryViewModel: ViewModel {
         let articles: Driver<[Article]>
         let isArticlesLoading: Driver<Bool>
         let isEmptyArticlesList: Driver<Bool>
+        let isArticlesLoadingError: Driver<Bool>
     }
     
-    private let articlesSubject = BehaviorRelay<[Article]>(value: [])
+    private let articlesSubject = BehaviorSubject<[Article]>(value: [])
     private let isArticlesLoadingSubject = BehaviorSubject<Bool>(value: false)
     private let isArticlesRefreshingSubject = BehaviorSubject<Bool>(value: false)
+    private let isArticlesLoadingErrorSubject = BehaviorSubject<Bool>(value: false)
     
     init(category: ArticleCategory) {
         self.category = category
@@ -55,7 +59,8 @@ class CategoryViewModel: ViewModel {
         input = Input(refresh: refreshSubject.asObserver(),
                       close: closeSubject.asObserver(),
                       selectedArticle: selectedArticleSubject.asObserver(),
-                      changeFavoriteStatus: changeFavoriteStatusSubject.asObserver())
+                      changeFavoriteStatus: changeFavoriteStatusSubject.asObserver(),
+                      retry: retrySubject.asObserver())
         
         let refreshing = isArticlesRefreshingSubject
             .asDriver(onErrorJustReturn: false)
@@ -66,30 +71,37 @@ class CategoryViewModel: ViewModel {
         let isArticlesLoading = isArticlesLoadingSubject
             .asDriver(onErrorJustReturn: false)
         
-        let isEmptyArticlesList = articlesSubject
-            .withLatestFrom(isArticlesLoadingSubject) { !$1 && $0.count == 0 }
+        let isEmptyArticlesList = Observable.combineLatest(articlesSubject, isArticlesLoadingSubject, isArticlesLoadingErrorSubject)
+            .map { !$1 && !$2 && $0.count == 0 }
+            .asDriver(onErrorJustReturn: false)
+        
+        let isArticlesLoadingError = Observable.combineLatest(isArticlesLoadingSubject, isArticlesRefreshingSubject, isArticlesLoadingErrorSubject)
+            .map { !$0 && !$1 && $2 }
             .asDriver(onErrorJustReturn: false)
         
         output = Output(refreshing: refreshing,
                         articles: articles,
                         isArticlesLoading: isArticlesLoading,
-                        isEmptyArticlesList: isEmptyArticlesList)
+                        isEmptyArticlesList: isEmptyArticlesList,
+                        isArticlesLoadingError: isArticlesLoadingError)
         
         refreshSubject.subscribe(onNext: { [unowned self] _ in
-            self.isArticlesRefreshingSubject.onNext(true)
-            
             self.refreshAllData()
+        }).disposed(by: disposeBag)
+        
+        retrySubject.subscribe(onNext: { [unowned self] _ in
+            self.getAllData()
         }).disposed(by: disposeBag)
         
         database.favoriteChanges
             .subscribe(onNext: { [unowned self] change in
                 switch change {
                 case .deleted(let article), .inserted(let article):
-                    var value = self.articlesSubject.value
+                    guard var value = try? self.articlesSubject.value() else { return }
                     guard let index = value.firstIndex(where: { $0 == article }) else { return }
                     value[index].isFavorite = !value[index].isFavorite
                     
-                    self.articlesSubject.accept(value)
+                    self.articlesSubject.onNext(value)
                 default:
                     break
                 }
@@ -125,11 +137,17 @@ private extension CategoryViewModel {
     
     func getArticles(completion: (() -> Void)? = nil) {
         apiService.getCategoryArticles(category: category.name.lowercased())
-            .flatMap { [unowned self] articlesObject in
-                self.prepareArticles(from: articlesObject)
-            }.do(onNext: { _ in
+            .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
+                guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                
+                return self.prepareArticles(from: articlesObject)
+            }.subscribe(onNext: { [unowned self] articles in
+                self.articlesSubject.onNext(articles)
                 completion?()
-            }).bind(to: articlesSubject)
+            }, onError: { error in
+                self.isArticlesLoadingErrorSubject.onNext(true)
+                completion?()
+            })
             .disposed(by: disposeBag)
     }
     

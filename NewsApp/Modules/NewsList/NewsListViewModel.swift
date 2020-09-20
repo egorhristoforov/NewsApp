@@ -24,10 +24,15 @@ class NewsListViewModel: ViewModel {
         let selectedArticle: AnyObserver<Article>
         let selectedSource: AnyObserver<Source>
         let selectedCategory: AnyObserver<ArticleCategory>
+        
+        let retryHeadlines: AnyObserver<Void>
+        let retrySourcesAndCategories: AnyObserver<Void>
     }
     
     private let refreshSubject = PublishSubject<Void>()
     private let changeFavoriteStatusSubject = PublishSubject<Article>()
+    private let retryHeadlinesSubject = PublishSubject<Void>()
+    private let retrySourcesAndCategoriesSubject = PublishSubject<Void>()
     
     let selectedArticleSubject = PublishSubject<Article>()
     let selectedSourceSubject = PublishSubject<Source>()
@@ -50,9 +55,12 @@ class NewsListViewModel: ViewModel {
         let isEmptyHeadlines: Driver<Bool>
         let isEmptySources: Driver<Bool>
         let isEmptyCategories: Driver<Bool>
+        
+        let isHeadlinesLoadingError: Driver<Bool>
+        let isSourcesLoadingError: Driver<Bool>
     }
     
-    private let headlinesSubject = BehaviorRelay<[Article]>(value: [])
+    private let headlinesSubject = BehaviorSubject<[Article]>(value: [])
     private let sourcesSubject = BehaviorSubject<[Source]>(value: [])
     private let categoriesSubject = BehaviorSubject<[ArticleCategory]>(value: [])
     
@@ -64,12 +72,17 @@ class NewsListViewModel: ViewModel {
     private let isSourcesRefreshingSubject = BehaviorSubject<Bool>(value: false)
     private let isCategoriesRefreshingSubject = BehaviorSubject<Bool>(value: false)
     
+    private let isHeadlinesLoadingErrorSubject = BehaviorSubject<Bool>(value: false)
+    private let isSourcesLoadingErrorSubject = BehaviorSubject<Bool>(value: false)
+    
     init() {
         input = Input(refresh: refreshSubject.asObserver(),
                       changeFavoriteStatus: changeFavoriteStatusSubject.asObserver(),
                       selectedArticle: selectedArticleSubject.asObserver(),
                       selectedSource: selectedSourceSubject.asObserver(),
-                      selectedCategory: selectedCategorySubject.asObserver())
+                      selectedCategory: selectedCategorySubject.asObserver(),
+                      retryHeadlines: retryHeadlinesSubject.asObserver(),
+                      retrySourcesAndCategories: retrySourcesAndCategoriesSubject.asObserver())
         
         let refreshing = Observable.combineLatest(isHeadlinesRefreshingSubject, isCategoriesRefreshingSubject, isSourcesRefreshingSubject)
             .map({ $0 || $1 || $2 })
@@ -93,16 +106,24 @@ class NewsListViewModel: ViewModel {
         let isCategoriesLoading = isCategoriesLoadingSubject
             .asDriver(onErrorJustReturn: false)
         
-        let isEmptyHeadlines = headlinesSubject
-            .withLatestFrom(isHeadlinesLoadingSubject) { !$1 && $0.count == 0 }
+        let isEmptyHeadlines = Observable.combineLatest(headlinesSubject, isHeadlinesLoadingSubject, isHeadlinesLoadingErrorSubject)
+            .map { !$1 && !$2 && $0.count == 0 }
             .asDriver(onErrorJustReturn: false)
         
-        let isEmptySources = sourcesSubject
-            .withLatestFrom(isSourcesLoadingSubject) { !$1 && $0.count == 0 }
+        let isEmptySources = Observable.combineLatest(sourcesSubject, isSourcesLoadingSubject, isSourcesLoadingErrorSubject)
+                .map { !$1 && !$2 && $0.count == 0 }
             .asDriver(onErrorJustReturn: false)
         
-        let isEmptyCategories = categoriesSubject
-            .withLatestFrom(isCategoriesLoadingSubject) { !$1 && $0.count == 0 }
+        let isEmptyCategories = Observable.combineLatest(categoriesSubject, isCategoriesLoadingSubject, isSourcesLoadingErrorSubject)
+            .map { !$1 && !$2 && $0.count == 0 }
+            .asDriver(onErrorJustReturn: false)
+        
+        let isHeadlinesLoadingError = Observable.combineLatest(isHeadlinesLoadingSubject, isHeadlinesRefreshingSubject, isHeadlinesLoadingErrorSubject)
+            .map { !$0 && !$1 && $2 }
+            .asDriver(onErrorJustReturn: false)
+        
+        let isSourcesLoadingError = Observable.combineLatest(isSourcesLoadingSubject, isSourcesRefreshingSubject, isSourcesLoadingErrorSubject)
+            .map { !$0 && !$1 && $2 }
             .asDriver(onErrorJustReturn: false)
         
         output = Output(refreshing: refreshing,
@@ -114,7 +135,9 @@ class NewsListViewModel: ViewModel {
                         isCategoriesLoading: isCategoriesLoading,
                         isEmptyHeadlines: isEmptyHeadlines,
                         isEmptySources: isEmptySources,
-                        isEmptyCategories: isEmptyCategories)
+                        isEmptyCategories: isEmptyCategories,
+                        isHeadlinesLoadingError: isHeadlinesLoadingError,
+                        isSourcesLoadingError: isSourcesLoadingError)
         
         refreshSubject.subscribe(onNext: { [unowned self] _ in
             self.isHeadlinesRefreshingSubject.onNext(true)
@@ -124,15 +147,23 @@ class NewsListViewModel: ViewModel {
             self.refreshAllData()
         }).disposed(by: disposeBag)
         
+        retryHeadlinesSubject.subscribe(onNext: { [unowned self] _ in
+            self.retryHeadlines()
+        }).disposed(by: disposeBag)
+        
+        retrySourcesAndCategoriesSubject.subscribe(onNext: { [unowned self] _ in
+            self.retrySourcesAndCategories()
+        }).disposed(by: disposeBag)
+        
         database.favoriteChanges
             .subscribe(onNext: { [unowned self] change in
                 switch change {
                 case .deleted(let article), .inserted(let article):
-                    var value = self.headlinesSubject.value
+                    guard var value = try? self.headlinesSubject.value() else { return }
                     guard let index = value.firstIndex(where: { $0 == article }) else { return }
                     value[index].isFavorite = !value[index].isFavorite
                     
-                    self.headlinesSubject.accept(value)
+                    self.headlinesSubject.onNext(value)
                 default:
                     break
                 }
@@ -193,26 +224,36 @@ private extension NewsListViewModel {
     
     func getHeadlines(completion: (() -> Void)? = nil) {
         apiService.getTopHeadlines()
-            .flatMap { [unowned self] headlinesObject in
-                self.prepareHeadlines(from: headlinesObject)
-            }.do(onNext: { _ in
+            .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
+                guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                
+                return self.prepareHeadlines(from: articlesObject)
+            }.subscribe(onNext: { [unowned self] articles in
+                self.headlinesSubject.onNext(articles)
                 completion?()
-            }).bind(to: headlinesSubject)
+            }, onError: { error in
+                self.isHeadlinesLoadingErrorSubject.onNext(true)
+                completion?()
+            })
             .disposed(by: disposeBag)
     }
     
     func getSourcesAndCategories(completion: (() -> Void)? = nil) {
         apiService.getSources()
-            .flatMap { [unowned self] sourcesObject in
-                self.prepareSources(from: sourcesObject)
+            .flatMap { [unowned self] sourcesObject -> Observable<[Source]> in
+                guard sourcesObject.status == "ok" else { throw ApiError.unknown }
+                
+                return self.prepareSources(from: sourcesObject)
             }.do(onNext: { [unowned self] (sources) in
                 let categories = self.parseCategories(from: sources)
-            
-                completion?()
-            
                 self.categoriesSubject.onNext(categories)
-            }).bind(to: sourcesSubject)
-            .disposed(by: disposeBag)
+            }).subscribe(onNext: { [unowned self] sources in
+                self.sourcesSubject.onNext(sources)
+                completion?()
+            }, onError: { error in
+                self.isSourcesLoadingErrorSubject.onNext(true)
+                completion?()
+            }).disposed(by: disposeBag)
     }
     
     private func refreshAllData() {
@@ -227,6 +268,24 @@ private extension NewsListViewModel {
         getSourcesAndCategories() { [weak self] in
             self?.isSourcesRefreshingSubject.onNext(false)
             self?.isCategoriesRefreshingSubject.onNext(false)
+        }
+    }
+    
+    private func retryHeadlines() {
+        isHeadlinesLoadingSubject.onNext(true)
+        
+        getHeadlines() { [weak self] in
+            self?.isHeadlinesLoadingSubject.onNext(false)
+        }
+    }
+    
+    private func retrySourcesAndCategories() {
+        isCategoriesLoadingSubject.onNext(true)
+        isSourcesLoadingSubject.onNext(true)
+        
+        getSourcesAndCategories() { [weak self] in
+            self?.isSourcesLoadingSubject.onNext(false)
+            self?.isCategoriesLoadingSubject.onNext(false)
         }
     }
 }

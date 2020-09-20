@@ -52,6 +52,18 @@ class NewsListView: UITableViewController {
         return view
     }()
     
+    private let sourcesErrorModalView: ModalView = {
+        let view = ModalView(title: "Sources and categories error", description: "An error was recieved. Try again later.", buttonText: "Retry")
+        
+        return view
+    }()
+    
+    private let headlinesErrorModalView: ModalView = {
+        let view = ModalView(title: "Headlines error", description: "An error was recieved. Try again later.", buttonText: "Retry")
+        
+        return view
+    }()
+    
     private let activityIndicator: UIActivityIndicatorView = {
         let view = UIActivityIndicatorView(style: .gray)
         view.hidesWhenStopped = true
@@ -117,8 +129,10 @@ class NewsListView: UITableViewController {
         tableHeaderView.addSubview(categoriesCollectionView)
         tableHeaderView.addSubview(sourcesCollectionView)
         tableHeaderView.addSubview(headlinesTableViewTitleLabel)
+        tableHeaderView.addSubview(sourcesErrorModalView)
         
         view.addSubview(emptyStateModalView)
+        view.addSubview(headlinesErrorModalView)
         view.addSubview(activityIndicator)
     }
     
@@ -145,6 +159,18 @@ class NewsListView: UITableViewController {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
+            make.width.equalToSuperview().offset(-40)
+            make.centerX.equalToSuperview()
+            make.centerY.equalToSuperview()
+        }
+        
+        headlinesErrorModalView.snp.makeConstraints { (make) in
+            make.width.equalToSuperview().offset(-40)
+            make.centerX.equalToSuperview()
+            make.centerY.equalToSuperview()
+        }
+        
+        sourcesErrorModalView.snp.makeConstraints { (make) in
             make.width.equalToSuperview().offset(-40)
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
@@ -180,6 +206,32 @@ class NewsListView: UITableViewController {
         
         tableView.rx.modelSelected(Article.self)
             .bind(to: viewModel.input.selectedArticle)
+            .disposed(by: disposeBag)
+        
+        viewModel.output.isHeadlinesLoadingError
+            .map { !$0 }
+            .drive(headlinesErrorModalView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        headlinesErrorModalView.button.rx.tap
+            .bind(to: viewModel.input.retryHeadlines)
+            .disposed(by: disposeBag)
+        
+        viewModel.output.isSourcesLoadingError
+            .map { !$0 }
+            .drive(sourcesErrorModalView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        viewModel.output.isSourcesLoadingError
+            .drive(categoriesCollectionView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        viewModel.output.isSourcesLoadingError
+            .drive(sourcesCollectionView.rx.isHidden)
+            .disposed(by: disposeBag)
+        
+        sourcesErrorModalView.button.rx.tap
+            .bind(to: viewModel.input.retrySourcesAndCategories)
             .disposed(by: disposeBag)
         
         if let refreshControl = refreshControl {
