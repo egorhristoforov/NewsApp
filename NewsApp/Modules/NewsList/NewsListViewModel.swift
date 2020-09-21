@@ -111,7 +111,7 @@ class NewsListViewModel: ViewModel {
             .asDriver(onErrorJustReturn: false)
         
         let isEmptySources = Observable.combineLatest(sourcesSubject, isSourcesLoadingSubject, isSourcesLoadingErrorSubject)
-                .map { !$1 && !$2 && $0.count == 0 }
+            .map { !$1 && !$2 && $0.count == 0 }
             .asDriver(onErrorJustReturn: false)
         
         let isEmptyCategories = Observable.combineLatest(categoriesSubject, isCategoriesLoadingSubject, isSourcesLoadingErrorSubject)
@@ -143,18 +143,18 @@ class NewsListViewModel: ViewModel {
             self.isHeadlinesRefreshingSubject.onNext(true)
             self.isSourcesRefreshingSubject.onNext(true)
             self.isCategoriesRefreshingSubject.onNext(true)
-            
+
             self.refreshAllData()
         }).disposed(by: disposeBag)
-        
+
         retryHeadlinesSubject.subscribe(onNext: { [unowned self] _ in
             self.retryHeadlines()
         }).disposed(by: disposeBag)
-        
+
         retrySourcesAndCategoriesSubject.subscribe(onNext: { [unowned self] _ in
             self.retrySourcesAndCategories()
         }).disposed(by: disposeBag)
-        
+
         database.favoriteChanges
             .subscribe(onNext: { [unowned self] change in
                 switch change {
@@ -162,13 +162,13 @@ class NewsListViewModel: ViewModel {
                     guard var value = try? self.headlinesSubject.value() else { return }
                     guard let index = value.firstIndex(where: { $0 == article }) else { return }
                     value[index].isFavorite = !value[index].isFavorite
-                    
+
                     self.headlinesSubject.onNext(value)
                 default:
                     break
                 }
             }).disposed(by: disposeBag)
-        
+
         changeFavoriteStatusSubject
             .subscribe(onNext: { [unowned self] article in
                 if article.isFavorite {
@@ -223,7 +223,7 @@ private extension NewsListViewModel {
     }
     
     func getHeadlines(completion: (() -> Void)? = nil) {
-        apiService.getTopHeadlines()
+        apiService.getTopHeadlines().asObservable()
             .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
                 guard articlesObject.status == "ok" else { throw ApiError.unknown }
                 
@@ -231,7 +231,7 @@ private extension NewsListViewModel {
             }.subscribe(onNext: { [unowned self] articles in
                 self.headlinesSubject.onNext(articles)
                 completion?()
-            }, onError: { error in
+            }, onError: { [unowned self] error in
                 self.isHeadlinesLoadingErrorSubject.onNext(true)
                 completion?()
             })
@@ -239,7 +239,7 @@ private extension NewsListViewModel {
     }
     
     func getSourcesAndCategories(completion: (() -> Void)? = nil) {
-        apiService.getSources()
+        apiService.getSources().asObservable()
             .flatMap { [unowned self] sourcesObject -> Observable<[Source]> in
                 guard sourcesObject.status == "ok" else { throw ApiError.unknown }
                 
@@ -250,7 +250,7 @@ private extension NewsListViewModel {
             }).subscribe(onNext: { [unowned self] sources in
                 self.sourcesSubject.onNext(sources)
                 completion?()
-            }, onError: { error in
+            }, onError: { [unowned self] error in
                 self.isSourcesLoadingErrorSubject.onNext(true)
                 completion?()
             }).disposed(by: disposeBag)

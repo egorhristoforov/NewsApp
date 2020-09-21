@@ -48,6 +48,6 @@ struct Article {
     }
     
     static func == (lhs: Article, rhs: Article) -> Bool {
-        return lhs.url == rhs.url
+        return lhs.url == rhs.url && lhs.sourceName == rhs.sourceName
     }
 }

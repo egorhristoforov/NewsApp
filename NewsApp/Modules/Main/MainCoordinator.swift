@@ -21,7 +21,7 @@ class MainCoordinator: Coordinator<Void> {
         let newsListCoordinator = NewsListCoordinator(navigationController: newsListNavigationController)
         
         let favouritesNavigationController = UINavigationController()
-        let favouritesCoordinator = FavouritesCoordinator(navigationController: favouritesNavigationController)
+        let favouritesCoordinator = FavoritesCoordinator(navigationController: favouritesNavigationController)
         
         coordinate(to: newsListCoordinator)
             .subscribe()

@@ -13,8 +13,6 @@ import Kingfisher
 class ArticleCell: UITableViewCell {
     var disposeBag = DisposeBag()
     
-    let favoriteButtonTap = PublishSubject<Void>()
-    
     private let wrapperView: UIView = {
         let view = UIView()
         view.backgroundColor = #colorLiteral(red: 0.9803921569, green: 0.9803921569, blue: 0.9803921569, alpha: 1)
@@ -61,7 +59,7 @@ class ArticleCell: UITableViewCell {
         return label
     }()
     
-    private let favoriteButton: UIButton = {
+    let favoriteButton: UIButton = {
         let button = UIButton()
         button.backgroundColor = UIColor.black.withAlphaComponent(0.7)
         button.layer.cornerRadius = 20
@@ -93,44 +91,45 @@ class ArticleCell: UITableViewCell {
     
     private func setupLayout() {
         wrapperView.snp.makeConstraints { (make) in
-            make.top.equalToSuperview().offset(10)
-            make.leading.equalToSuperview().offset(16)
-            make.trailing.equalToSuperview().offset(-16)
-            make.bottom.equalToSuperview().offset(-10)
+            make.top.equalToSuperview().offset(LayoutConstants.cellVerticalPadding)
+            make.leading.equalToSuperview().offset(LayoutConstants.cellHorizontalPadding)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.cellHorizontalPadding)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.cellVerticalPadding)
         }
         
         articleImageView.snp.makeConstraints { (make) in
             make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(144)
+            make.height.equalTo(LayoutConstants.imageHeight)
         }
         
         titleLabel.snp.makeConstraints { (make) in
-            make.top.equalTo(articleImageView.snp.bottom).offset(10)
-            make.leading.equalToSuperview().offset(10)
-            make.trailing.equalToSuperview().offset(-10)
+            make.top.equalTo(articleImageView.snp.bottom).offset(LayoutConstants.titleMarginTop)
+            make.leading.equalToSuperview().offset(LayoutConstants.titleMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.titleMarginHorizontal)
         }
         
         sourceLabel.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(10)
-            make.top.equalTo(titleLabel.snp.bottom).offset(22)
-            make.bottom.equalToSuperview().offset(-10)
+            make.leading.equalToSuperview().offset(LayoutConstants.sourceMarginHorizontal)
+            make.top.equalTo(titleLabel.snp.bottom).offset(LayoutConstants.sourceMarginTop)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.sourceMarginBottom)
         }
         
         dateLabel.snp.makeConstraints { (make) in
             make.leading.top.bottom.equalTo(sourceLabel)
-            make.trailing.equalToSuperview().offset(-10)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.sourceMarginHorizontal)
         }
         
         favoriteButton.snp.makeConstraints { (make) in
-            make.size.equalTo(40)
-            make.top.equalToSuperview().offset(10)
-            make.trailing.equalToSuperview().offset(-10)
+            make.size.equalTo(LayoutConstants.favoriteButtonSize)
+            make.top.equalToSuperview().offset(LayoutConstants.favoriteButtonMarginTop)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.favoriteButtonMarginTrailing)
         }
     }
     
     override func prepareForReuse() {
         super.prepareForReuse()
         
+        articleImageView.kf.cancelDownloadTask()
         articleImageView.image = nil
         titleLabel.text = nil
         dateLabel.text = nil
@@ -149,7 +148,7 @@ class ArticleCell: UITableViewCell {
         favoriteButton.setImage(article.isFavorite ? UIImage(named: "favorite") : UIImage(named: "not-favorite"), for: .normal)
         
         if let url = article.urlToImage {
-            articleImageView.kf.setImage(with: URL(string: url)) { [weak self] result in
+            articleImageView.kf.setImage(with: URL(string: url), completionHandler:  { [weak self] result in
                 switch result {
                 case .success(_):
                     break
@@ -161,14 +160,34 @@ class ArticleCell: UITableViewCell {
                         break
                     }
                 }
-            }
+            })
         } else {
             articleImageView.image = UIImage(named: "placeholder")
         }
-        
-        favoriteButton.rx.tap
-            .bind(to: favoriteButtonTap)
-            .disposed(by: disposeBag)
+    }
+    
+    deinit {
+        print("deinit cell", self)
     }
 
+}
+
+private extension ArticleCell {
+    enum LayoutConstants {
+        static let cellHorizontalPadding = 16
+        static let cellVerticalPadding = 10
+        
+        static let imageHeight = 144
+        
+        static let titleMarginTop = 10
+        static let titleMarginHorizontal = 10
+        
+        static let sourceMarginTop = 22
+        static let sourceMarginBottom = 10
+        static let sourceMarginHorizontal = 10
+        
+        static let favoriteButtonSize = 40
+        static let favoriteButtonMarginTop = 10
+        static let favoriteButtonMarginTrailing = 10
+    }
 }

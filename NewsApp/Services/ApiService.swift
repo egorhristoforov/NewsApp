@@ -59,7 +59,7 @@ class BaseApiService {
             .flatMap { (_, json) -> Observable<T> in
                 guard let json = json as? [String: Any] else { throw ApiError.noData }
                 guard let model = Mapper<T>().map(JSON: json) else { throw ApiError.convertError }
-                
+
                 return .just(model)
             }
     }

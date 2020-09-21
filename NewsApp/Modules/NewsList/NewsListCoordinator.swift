@@ -21,24 +21,28 @@ class NewsListCoordinator: Coordinator<Void> {
         
         navigationController.pushViewController(viewController, animated: false)
         
-        viewModel.selectedArticleSubject.subscribe(onNext: { [unowned self] (article) in
-            guard let url = URL(string: article.url) else { return }
-            let coordinator = WebCoordinator(navigationController: self.navigationController, url: url)
-            
-            self.coordinate(to: coordinator)
-        }).disposed(by: disposeBag)
+        viewModel.selectedArticleSubject
+            .map { URL(string: $0.url) }
+            .filter { $0 != nil }
+            .flatMap { [unowned self] url -> Observable<Void> in
+                let coordinator = WebCoordinator(navigationController: self.navigationController, url: url!)
+                return self.coordinate(to: coordinator)
+            }.subscribe()
+            .disposed(by: disposeBag)
         
-        viewModel.selectedCategorySubject.subscribe(onNext: { [unowned self] (category) in
-            let coordinator = CategoryCoordinator(navigationController: self.navigationController, category: category)
-            
-            self.coordinate(to: coordinator)
-        }).disposed(by: disposeBag)
+        viewModel.selectedCategorySubject
+            .flatMap { [unowned self] category -> Observable<Void> in
+                let coordinator = CategoryCoordinator(navigationController: self.navigationController, category: category)
+                return self.coordinate(to: coordinator)
+            }.subscribe()
+            .disposed(by: disposeBag)
         
-        viewModel.selectedSourceSubject.subscribe(onNext: { [unowned self] (source) in
-            let coordinator = SourceCoordinator(navigationController: self.navigationController, source: source)
-            
-            self.coordinate(to: coordinator)
-        }).disposed(by: disposeBag)
+        viewModel.selectedSourceSubject
+            .flatMap { [unowned self] source -> Observable<Void> in
+                let coordinator = SourceCoordinator(navigationController: self.navigationController, source: source)
+                return self.coordinate(to: coordinator)
+            }.subscribe()
+            .disposed(by: disposeBag)
         
         return Observable.never()
     }

@@ -54,17 +54,26 @@ class CategoryCollectionViewCell: UICollectionViewCell {
     
     private func setupLayout() {
         nameLabel.snp.makeConstraints { (make) in
-            make.top.equalToSuperview().offset(17)
-            make.bottom.equalToSuperview().offset(-17)
-            make.leading.equalToSuperview().offset(20)
-            make.trailing.equalToSuperview().offset(-20)
+            make.top.equalToSuperview().offset(LayoutConstants.nameLabelMarginVertical)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.nameLabelMarginVertical)
+            make.leading.equalToSuperview().offset(LayoutConstants.nameLabelMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.nameLabelMarginHorizontal)
         }
         
         categoryImageView.snp.makeConstraints { (make) in
-            make.top.equalToSuperview().offset(8)
-            make.bottom.equalToSuperview().offset(-8)
+            make.top.equalToSuperview().offset(LayoutConstants.categoryImageMarginVertical)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.categoryImageMarginVertical)
             make.centerX.equalToSuperview()
             make.width.equalToSuperview()
         }
+    }
+}
+
+private extension CategoryCollectionViewCell {
+    enum LayoutConstants {
+        static let nameLabelMarginHorizontal = 20
+        static let nameLabelMarginVertical = 17
+        
+        static let categoryImageMarginVertical = 8
     }
 }

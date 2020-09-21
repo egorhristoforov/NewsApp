@@ -91,15 +91,15 @@ class CategoriesView: UIView {
     
     private func setupLayout() {
         titleLabel.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(16).labeled("titleLeading")
-            make.trailing.equalToSuperview().offset(-16).labeled("titleTrailing")
-            make.top.equalToSuperview().labeled("titleTop")
+            make.leading.equalToSuperview().offset(LayoutConstants.titleMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.titleMarginHorizontal)
+            make.top.equalToSuperview()
         }
 
         categoriesCollectionView.snp.makeConstraints { (make) in
             make.leading.trailing.equalToSuperview()
-            make.top.equalTo(titleLabel.snp.bottom).offset(8)
-            make.height.equalTo(54)
+            make.top.equalTo(titleLabel.snp.bottom).offset(LayoutConstants.collectionViewMarginTop)
+            make.height.equalTo(LayoutConstants.collectionViewHeight)
             make.bottom.equalToSuperview()
         }
         
@@ -109,7 +109,7 @@ class CategoriesView: UIView {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
         }
@@ -136,5 +136,15 @@ class CategoriesView: UIView {
             .drive(emptyStateModalView.rx.isHidden)
             .disposed(by: disposeBag)
     }
-    
+}
+
+private extension CategoriesView {
+    enum LayoutConstants {
+        static let titleMarginHorizontal = 16
+        
+        static let collectionViewMarginTop = 8
+        static let collectionViewHeight = 54
+        
+        static let modalViewMarginHorizontal = 40
+    }
 }

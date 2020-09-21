@@ -40,6 +40,6 @@ class FavoriteArticle: Object {
     }
     
     static func == (lhs: FavoriteArticle, rhs: Article) -> Bool {
-        return lhs.url == rhs.url
+        return lhs.url == rhs.url && lhs.sourceName == rhs.sourceName
     }
 }

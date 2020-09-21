@@ -79,15 +79,15 @@ class CategoryView: UITableViewController {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(20)
+            make.top.equalToSuperview().offset(LayoutConstants.modalViewMarginTop)
         }
         
         errorModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(20)
+            make.top.equalToSuperview().offset(LayoutConstants.modalViewMarginTop)
         }
     }
     
@@ -100,7 +100,7 @@ class CategoryView: UITableViewController {
                 
                 cell.setupCell(article: article)
                 
-                cell.favoriteButtonTap
+                cell.favoriteButton.rx.tap
                     .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
                     .map({ _ in return article })
                     .bind(to: self.viewModel.input.changeFavoriteStatus)
@@ -141,5 +141,11 @@ class CategoryView: UITableViewController {
                 .disposed(by: disposeBag)
         }
     }
-    
+}
+
+private extension CategoryView {
+    enum LayoutConstants {
+        static let modalViewMarginTop = 20
+        static let modalViewMarginHorizontal = 40
+    }
 }

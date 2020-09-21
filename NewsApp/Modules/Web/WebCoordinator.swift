@@ -23,7 +23,9 @@ class WebCoordinator: Coordinator<Void> {
         
         navigationController.pushViewController(viewController, animated: true)
         
-        return viewModel.didClose
+        let didClose = viewModel.didClose
+        
+        return didClose
             .take(1)
     }
 }

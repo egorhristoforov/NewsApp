@@ -144,7 +144,7 @@ private extension CategoryViewModel {
             }.subscribe(onNext: { [unowned self] articles in
                 self.articlesSubject.onNext(articles)
                 completion?()
-            }, onError: { error in
+            }, onError: { [unowned self] error in
                 self.isArticlesLoadingErrorSubject.onNext(true)
                 completion?()
             })

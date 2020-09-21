@@ -9,6 +9,7 @@ target 'NewsApp' do
   pod 'RxSwift'
   pod 'RxCocoa'
   
+  pod 'RealmSwift'
   pod 'RxRealm'
   
   pod 'SnapKit'

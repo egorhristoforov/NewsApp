@@ -56,9 +56,9 @@ class FavoritesView: UITableViewController {
     
     private func setupLayout() {
         emptyStateModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(20)
+            make.top.equalToSuperview().offset(LayoutConstants.modalViewMarginTop)
         }
     }
     
@@ -70,7 +70,7 @@ class FavoritesView: UITableViewController {
             
             cell.setupCell(article: article)
             
-            cell.favoriteButtonTap
+            cell.favoriteButton.rx.tap
                 .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
                 .map({ _ in return article })
                 .bind(to: self.viewModel.input.changeFavoriteStatus)
@@ -92,5 +92,11 @@ class FavoritesView: UITableViewController {
             .drive(emptyStateModalView.rx.isHidden)
             .disposed(by: disposeBag)
     }
+}
 
+private extension FavoritesView {
+    enum LayoutConstants {
+        static let modalViewMarginTop = 20
+        static let modalViewMarginHorizontal = 40
+    }
 }

@@ -8,7 +8,7 @@
 
 import RxSwift
 
-class FavouritesCoordinator: Coordinator<Void> {
+class FavoritesCoordinator: Coordinator<Void> {
     let navigationController: UINavigationController
     
     init(navigationController: UINavigationController) {
@@ -21,12 +21,15 @@ class FavouritesCoordinator: Coordinator<Void> {
         
         navigationController.pushViewController(viewController, animated: false)
         
-        viewModel.selectedArticle.subscribe(onNext: { [unowned self] (article) in
-            guard let url = URL(string: article.url) else { return }
-            let coordinator = WebCoordinator(navigationController: self.navigationController, url: url)
-            
-            self.coordinate(to: coordinator)
-        }).disposed(by: disposeBag)
+        viewModel.selectedArticle
+            .map { URL(string: $0.url) }
+            .filter { $0 != nil }
+            .flatMap { [unowned self] url -> Observable<Void> in
+                let coordinator = WebCoordinator(navigationController: self.navigationController, url: url!)
+                
+                return self.coordinate(to: coordinator)
+            }.subscribe()
+            .disposed(by: disposeBag)
         
         return Observable.never()
     }

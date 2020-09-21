@@ -11,7 +11,6 @@ import Foundation
 extension String {
     func toDate() -> Date? {
         let formatter = DateFormatter()
-        //formatter.timeZone = TimeZone(abbreviation: "UTC")
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
         let date = formatter.date(from: self)
         

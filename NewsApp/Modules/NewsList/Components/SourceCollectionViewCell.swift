@@ -55,16 +55,27 @@ class SourceCollectionViewCell: UICollectionViewCell {
     
     private func setupLayout() {
         titleLabel.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(15)
-            make.trailing.equalToSuperview().offset(-15)
-            make.top.equalToSuperview().offset(10)
+            make.leading.equalToSuperview().offset(LayoutConstants.titleMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.titleMarginHorizontal)
+            make.top.equalToSuperview().offset(LayoutConstants.titleMarginTop)
         }
         
         descriptionLabel.snp.makeConstraints { (make) in
-            make.top.equalTo(titleLabel.snp.bottom).offset(6)
-            make.leading.equalToSuperview().offset(15)
-            make.trailing.equalToSuperview().offset(-15)
-            make.bottom.equalToSuperview().offset(-10)
+            make.top.equalTo(titleLabel.snp.bottom).offset(LayoutConstants.descriptionMarginTop)
+            make.leading.equalToSuperview().offset(LayoutConstants.descriptionMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.descriptionMarginHorizontal)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.descriptionMarginBottom)
         }
+    }
+}
+
+private extension SourceCollectionViewCell {
+    enum LayoutConstants {
+        static let titleMarginHorizontal = 15
+        static let titleMarginTop = 10
+        
+        static let descriptionMarginHorizontal = 15
+        static let descriptionMarginTop = 6
+        static let descriptionMarginBottom = 10
     }
 }

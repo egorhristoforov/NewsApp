@@ -68,24 +68,38 @@ class ModalView: UIView {
     
     private func setupLayout() {
         titleLabel.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(10)
-            make.trailing.equalToSuperview().offset(-10)
-            make.top.equalToSuperview().offset(5)
+            make.leading.equalToSuperview().offset(LayoutConstants.titleMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.titleMarginHorizontal)
+            make.top.equalToSuperview().offset(LayoutConstants.titleMarginTop)
         }
         
         descriptionLabel.snp.makeConstraints { (make) in
-            make.top.equalTo(titleLabel.snp.bottom).offset(5)
-            make.leading.equalToSuperview().offset(10)
-            make.trailing.equalToSuperview().offset(-10)
+            make.top.equalTo(titleLabel.snp.bottom).offset(LayoutConstants.descriptionMarginTop)
+            make.leading.equalToSuperview().offset(LayoutConstants.descriptionMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.descriptionMarginHorizontal)
         }
         
         button.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(30)
-            make.trailing.equalToSuperview().offset(-30)
-            make.height.equalTo(40)
-            make.bottom.equalToSuperview().offset(-5)
-            make.top.equalTo(descriptionLabel.snp.bottom).offset(15)
+            make.leading.equalToSuperview().offset(LayoutConstants.buttonMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.buttonMarginHorizontal)
+            make.height.equalTo(LayoutConstants.buttonHeight)
+            make.bottom.equalToSuperview().offset(-LayoutConstants.buttonMarginBottom)
+            make.top.equalTo(descriptionLabel.snp.bottom).offset(LayoutConstants.buttonMarginTop)
         }
     }
-    
+}
+
+private extension ModalView {
+    enum LayoutConstants {
+        static let titleMarginHorizontal = 10
+        static let titleMarginTop = 5
+        
+        static let descriptionMarginTop = 5
+        static let descriptionMarginHorizontal = 10
+        
+        static let buttonMarginHorizontal = 30
+        static let buttonHeight = 40
+        static let buttonMarginTop = 15
+        static let buttonMarginBottom = 5
+    }
 }

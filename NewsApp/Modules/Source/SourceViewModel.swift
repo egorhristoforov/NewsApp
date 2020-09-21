@@ -102,13 +102,13 @@ class SourceViewModel: ViewModel {
                     guard var value = try? self.articlesSubject.value() else { return }
                     guard let index = value.firstIndex(where: { $0 == article }) else { return }
                     value[index].isFavorite = !value[index].isFavorite
-                    
+
                     self.articlesSubject.onNext(value)
                 default:
                     break
                 }
             }).disposed(by: disposeBag)
-        
+
         changeFavoriteStatusSubject
             .subscribe(onNext: { [unowned self] article in
                 if article.isFavorite {
@@ -138,15 +138,15 @@ private extension SourceViewModel {
     }
     
     func getArticles(completion: (() -> Void)? = nil) {
-        apiService.getSourceArticles(source: source.id)
+        apiService.getSourceArticles(source: source.id).take(1)
             .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
                 guard articlesObject.status == "ok" else { throw ApiError.unknown }
-                
+
                 return self.prepareArticles(from: articlesObject)
             }.subscribe(onNext: { [unowned self] articles in
                 self.articlesSubject.onNext(articles)
                 completion?()
-            }, onError: { error in
+            }, onError: { [unowned self] error in
                 self.isArticlesLoadingErrorSubject.onNext(true)
                 completion?()
             })
@@ -156,16 +156,16 @@ private extension SourceViewModel {
     func getAllData() {
         isArticlesLoadingSubject.onNext(true)
         
-        getArticles() { [weak self] in
-            self?.isArticlesLoadingSubject.onNext(false)
+        getArticles() { [unowned self] in
+            self.isArticlesLoadingSubject.onNext(false)
         }
     }
     
     func refreshAllData() {
         isArticlesRefreshingSubject.onNext(true)
         
-        getArticles() { [weak self] in
-            self?.isArticlesRefreshingSubject.onNext(false)
+        getArticles() { [unowned self] in
+            self.isArticlesRefreshingSubject.onNext(false)
         }
     }
 }

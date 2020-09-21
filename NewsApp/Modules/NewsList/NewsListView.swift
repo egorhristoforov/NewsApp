@@ -138,19 +138,19 @@ class NewsListView: UITableViewController {
     
     private func setupLayout() {
         categoriesCollectionView.snp.makeConstraints { (make) in
-            make.top.equalToSuperview().offset(8)
+            make.top.equalToSuperview().offset(LayoutConstants.categoriesMarginTop)
             make.leading.trailing.equalToSuperview()
         }
         
         sourcesCollectionView.snp.makeConstraints { (make) in
-            make.top.equalTo(categoriesCollectionView.snp.bottom).offset(15)
+            make.top.equalTo(categoriesCollectionView.snp.bottom).offset(LayoutConstants.sourcesMarginTop)
             make.leading.trailing.equalToSuperview()
         }
         
         headlinesTableViewTitleLabel.snp.makeConstraints { (make) in
-            make.leading.equalToSuperview().offset(16)
-            make.trailing.equalToSuperview().offset(-16)
-            make.top.equalTo(sourcesCollectionView.snp.bottom).offset(15)
+            make.leading.equalToSuperview().offset(LayoutConstants.headlinesTitleTableMarginHorizontal)
+            make.trailing.equalToSuperview().offset(-LayoutConstants.headlinesTitleTableMarginHorizontal)
+            make.top.equalTo(sourcesCollectionView.snp.bottom).offset(LayoutConstants.headlinesTitleTableMarginTop)
             make.bottom.equalToSuperview()
         }
         
@@ -159,19 +159,19 @@ class NewsListView: UITableViewController {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
         }
         
         headlinesErrorModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
         }
         
         sourcesErrorModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
             make.centerY.equalToSuperview()
         }
@@ -186,7 +186,7 @@ class NewsListView: UITableViewController {
                 
                 cell.setupCell(article: article)
                 
-                cell.favoriteButtonTap
+                cell.favoriteButton.rx.tap
                     .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
                     .map({ _ in return article })
                     .bind(to: self.viewModel.input.changeFavoriteStatus)
@@ -216,32 +216,44 @@ class NewsListView: UITableViewController {
         headlinesErrorModalView.button.rx.tap
             .bind(to: viewModel.input.retryHeadlines)
             .disposed(by: disposeBag)
-        
+
         viewModel.output.isSourcesLoadingError
             .map { !$0 }
             .drive(sourcesErrorModalView.rx.isHidden)
             .disposed(by: disposeBag)
-        
+
         viewModel.output.isSourcesLoadingError
             .drive(categoriesCollectionView.rx.isHidden)
             .disposed(by: disposeBag)
-        
+
         viewModel.output.isSourcesLoadingError
             .drive(sourcesCollectionView.rx.isHidden)
             .disposed(by: disposeBag)
-        
+
         sourcesErrorModalView.button.rx.tap
             .bind(to: viewModel.input.retrySourcesAndCategories)
             .disposed(by: disposeBag)
-        
+
         if let refreshControl = refreshControl {
             viewModel.output.refreshing
                 .drive(refreshControl.rx.isRefreshing)
                 .disposed(by: disposeBag)
-            
+
             refreshControl.rx.controlEvent(.valueChanged)
                 .bind(to: viewModel.input.refresh)
                 .disposed(by: disposeBag)
         }
+    }
+}
+
+private extension NewsListView {
+    enum LayoutConstants {
+        static let categoriesMarginTop = 8
+        static let sourcesMarginTop = 15
+        
+        static let headlinesTitleTableMarginTop = 15
+        static let headlinesTitleTableMarginHorizontal = 16
+        
+        static let modalViewMarginHorizontal = 40
     }
 }

@@ -17,13 +17,13 @@ class SourceView: UITableViewController {
     
     private let emptyStateModalView: ModalView = {
         let view = ModalView(title: "Empty news list", description: "An empty list of news was received. Perhaps the news will appear later.")
-        
+
         return view
     }()
-    
+
     private let errorModalView: ModalView = {
         let view = ModalView(title: "Sources error", description: "An error was recieved. Try again later.", buttonText: "Retry")
-        
+
         return view
     }()
     
@@ -79,15 +79,15 @@ class SourceView: UITableViewController {
         }
         
         emptyStateModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(20)
+            make.top.equalToSuperview().offset(LayoutConstants.modalViewMarginTop)
         }
         
         errorModalView.snp.makeConstraints { (make) in
-            make.width.equalToSuperview().offset(-40)
+            make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(20)
+            make.top.equalToSuperview().offset(LayoutConstants.modalViewMarginTop)
         }
     }
     
@@ -100,14 +100,14 @@ class SourceView: UITableViewController {
                 
                 cell.setupCell(article: article)
 
-                cell.favoriteButtonTap
+                cell.favoriteButton.rx.tap
                     .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
                     .map({ _ in return article })
                     .bind(to: self.viewModel.input.changeFavoriteStatus)
                     .disposed(by: cell.disposeBag)
                 
                 return cell
-        }.disposed(by: disposeBag)
+            }.disposed(by: disposeBag)
         
         viewModel.output.isArticlesLoading
             .drive(activityIndicator.rx.isAnimating)
@@ -135,10 +135,17 @@ class SourceView: UITableViewController {
             viewModel.output.refreshing
                 .drive(refreshControl.rx.isRefreshing)
                 .disposed(by: disposeBag)
-            
+
             refreshControl.rx.controlEvent(.valueChanged)
                 .bind(to: viewModel.input.refresh)
                 .disposed(by: disposeBag)
         }
+    }
+}
+
+private extension SourceView {
+    enum LayoutConstants {
+        static let modalViewMarginTop = 20
+        static let modalViewMarginHorizontal = 40
     }
 }
