@@ -15,8 +15,17 @@ class FavoritesView: UITableViewController {
     
     private let cellId = "articleCellId"
     
+    private let searchController = UISearchController(searchResultsController: nil)
+    
     private let emptyStateModalView: ModalView = {
         let view = ModalView(title: "No favorite articles", description: "You can add articles to favorites from news list screen.")
+        
+        return view
+    }()
+    
+    private let activityIndicator: UIActivityIndicatorView = {
+        let view = UIActivityIndicatorView(style: .gray)
+        view.hidesWhenStopped = true
         
         return view
     }()
@@ -27,7 +36,7 @@ class FavoritesView: UITableViewController {
         super.init(nibName: nil, bundle: nil)
         
         title = "Favorites"
-        tabBarItem = UITabBarItem(title: title, image: #imageLiteral(resourceName: "Bookmarks-tab"), tag: 1)
+        tabBarItem = UITabBarItem(title: title, image: #imageLiteral(resourceName: "Bookmarks-tab"), tag: 2)
     }
     
     required init?(coder: NSCoder) {
@@ -39,11 +48,16 @@ class FavoritesView: UITableViewController {
         view.backgroundColor = .white
         
         navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activityIndicator)
         
         tableView.separatorStyle = .none
         tableView.register(ArticleCell.self, forCellReuseIdentifier: cellId)
         tableView.dataSource = nil
         tableView.delegate = nil
+        
+        searchController.hidesNavigationBarDuringPresentation = false
+        searchController.obscuresBackgroundDuringPresentation = false
+        navigationItem.searchController = searchController
         
         setupViews()
         setupLayout()
@@ -79,6 +93,10 @@ class FavoritesView: UITableViewController {
             return cell
         }.disposed(by: disposeBag)
         
+        viewModel.output.isArticlesLoading
+            .drive(activityIndicator.rx.isAnimating)
+            .disposed(by: disposeBag)
+        
         tableView.rx.modelSelected(Article.self)
             .bind(to: viewModel.input.selectedArticle)
             .disposed(by: disposeBag)
@@ -91,6 +109,20 @@ class FavoritesView: UITableViewController {
             .map { !$0 }
             .drive(emptyStateModalView.rx.isHidden)
             .disposed(by: disposeBag)
+        
+        let cancelSearch = searchController.searchBar.rx.cancelButtonClicked.map { _ in "" }
+        let searchTextChange = searchController.searchBar.rx.text.orEmpty.asObservable()
+
+        Observable.of(cancelSearch, searchTextChange)
+            .merge()
+            .debounce(RxTimeInterval.milliseconds(500), scheduler: MainScheduler.instance)
+            .distinctUntilChanged()
+            .bind(to: viewModel.input.searchText)
+            .disposed(by: disposeBag)
+        
+        tableView.rx.willBeginDragging.subscribe { [unowned self] _ in
+            searchController.searchBar.endEditing(true)
+        }.disposed(by: disposeBag)
     }
 }
 

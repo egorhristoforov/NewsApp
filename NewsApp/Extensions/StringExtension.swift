@@ -16,4 +16,8 @@ extension String {
         
         return date
     }
+    
+    func isEmpty() -> Bool {
+        self.trimmingCharacters(in: .whitespacesAndNewlines) == ""
+    }
 }

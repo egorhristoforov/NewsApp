@@ -27,11 +27,13 @@ class SourceViewModel: ViewModel {
         let selectedArticle: AnyObserver<Article>
         let changeFavoriteStatus: AnyObserver<Article>
         let retry: AnyObserver<Void>
+        let searchText: AnyObserver<String>
     }
     
     private let refreshSubject = PublishSubject<Void>()
     private let changeFavoriteStatusSubject = PublishSubject<Article>()
     private let retrySubject = PublishSubject<Void>()
+    private let searchTextSubject = PublishSubject<String>()
     
     let closeSubject = PublishSubject<Void>()
     let selectedArticleSubject = PublishSubject<Article>()
@@ -50,7 +52,7 @@ class SourceViewModel: ViewModel {
     }
     
     private let articlesSubject = BehaviorSubject<[Article]>(value: [])
-    private let isArticlesLoadingSubject = BehaviorSubject<Bool>(value: false)
+    private let isArticlesLoadingSubject = BehaviorSubject<Bool>(value: true)
     private let isArticlesRefreshingSubject = BehaviorSubject<Bool>(value: false)
     
     private let isArticlesLoadingErrorSubject = BehaviorSubject<Bool>(value: false)
@@ -62,7 +64,8 @@ class SourceViewModel: ViewModel {
                       close: closeSubject.asObserver(),
                       selectedArticle: selectedArticleSubject.asObserver(),
                       changeFavoriteStatus: changeFavoriteStatusSubject.asObserver(),
-                      retry: retrySubject.asObserver())
+                      retry: retrySubject.asObserver(),
+                      searchText: searchTextSubject.asObserver())
         
         let refreshing = isArticlesRefreshingSubject
             .asDriver(onErrorJustReturn: false)
@@ -87,14 +90,6 @@ class SourceViewModel: ViewModel {
                         isEmptyArticlesList: isEmptyArticlesList,
                         isArticlesLoadingError: isArticlesLoadingError)
         
-        refreshSubject.subscribe(onNext: { [unowned self] _ in
-            self.refreshAllData()
-        }).disposed(by: disposeBag)
-        
-        retrySubject.subscribe(onNext: { [unowned self] _ in
-            self.getAllData()
-        }).disposed(by: disposeBag)
-        
         database.favoriteChanges
             .subscribe(onNext: { [unowned self] change in
                 switch change {
@@ -118,7 +113,77 @@ class SourceViewModel: ViewModel {
                 }
             }).disposed(by: disposeBag)
         
-        getAllData()
+        searchTextSubject
+            .do(onNext: { [unowned self] _ in
+                isArticlesLoadingSubject.onNext(true)
+            }).do { [unowned self] query in
+                if query.isEmpty() {
+                    articlesSubject.onNext([])
+                } else {
+                    isArticlesLoadingSubject.onNext(true)
+                }
+            }.filter { !$0.isEmpty() }
+            .flatMap { [unowned self] query in
+                apiService.getSourceArticles(source: source.id, query: query)
+                    .flatMap { articlesObject -> Observable<[Article]> in
+                        guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                        return prepareArticles(from: articlesObject)
+                    }
+            }.subscribe { [unowned self] articles in
+                articlesSubject.onNext(articles)
+                isArticlesLoadingSubject.onNext(false)
+            } onError: { [unowned self] error in
+                isArticlesLoadingErrorSubject.onNext(true)
+                isArticlesLoadingSubject.onNext(false)
+            }.disposed(by: disposeBag)
+        
+        refreshSubject
+            .withLatestFrom(searchTextSubject) { $1 }
+            .do { [unowned self] _ in
+                isArticlesRefreshingSubject.onNext(true)
+            }.flatMap { [unowned self] query in
+                apiService.getSourceArticles(source: source.id, query: query)
+                    .flatMap { articlesObject -> Observable<[Article]> in
+                        guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                        return prepareArticles(from: articlesObject)
+                    }
+            }.subscribe { [unowned self] articles in
+                articlesSubject.onNext(articles)
+                isArticlesRefreshingSubject.onNext(false)
+            } onError: { [unowned self] error in
+                isArticlesLoadingErrorSubject.onNext(true)
+                isArticlesRefreshingSubject.onNext(false)
+            }.disposed(by: disposeBag)
+        
+        retrySubject
+            .do { [unowned self] _ in
+                isArticlesLoadingSubject.onNext(true)
+            }.withLatestFrom(searchTextSubject) { $1 }
+            .flatMap { [unowned self] query in
+                apiService.getSourceArticles(source: source.id)
+                    .flatMap { articlesObject -> Observable<[Article]> in
+                        guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                        return prepareArticles(from: articlesObject)
+                    }
+            }.subscribe { [unowned self] articles in
+                articlesSubject.onNext(articles)
+                isArticlesLoadingSubject.onNext(false)
+            } onError: { [unowned self] error in
+                isArticlesLoadingErrorSubject.onNext(true)
+                isArticlesLoadingSubject.onNext(false)
+            }.disposed(by: disposeBag)
+        
+        apiService.getSourceArticles(source: source.id)
+            .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
+                guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                return prepareArticles(from: articlesObject)
+            }.subscribe { [unowned self] articles in
+                articlesSubject.onNext(articles)
+                isArticlesLoadingSubject.onNext(false)
+            } onError: { [unowned self] error in
+                isArticlesLoadingErrorSubject.onNext(true)
+                isArticlesLoadingSubject.onNext(false)
+            }.disposed(by: disposeBag)
     }
 }
 
@@ -134,38 +199,6 @@ private extension SourceViewModel {
                     }) != nil
                     return preparedArticle
                 }
-        }
-    }
-    
-    func getArticles(completion: (() -> Void)? = nil) {
-        apiService.getSourceArticles(source: source.id).take(1)
-            .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
-                guard articlesObject.status == "ok" else { throw ApiError.unknown }
-
-                return self.prepareArticles(from: articlesObject)
-            }.subscribe(onNext: { [unowned self] articles in
-                self.articlesSubject.onNext(articles)
-                completion?()
-            }, onError: { [unowned self] error in
-                self.isArticlesLoadingErrorSubject.onNext(true)
-                completion?()
-            })
-            .disposed(by: disposeBag)
-    }
-    
-    func getAllData() {
-        isArticlesLoadingSubject.onNext(true)
-        
-        getArticles() { [unowned self] in
-            self.isArticlesLoadingSubject.onNext(false)
-        }
-    }
-    
-    func refreshAllData() {
-        isArticlesRefreshingSubject.onNext(true)
-        
-        getArticles() { [unowned self] in
-            self.isArticlesRefreshingSubject.onNext(false)
         }
     }
 }

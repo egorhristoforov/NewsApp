@@ -83,7 +83,7 @@ class NewsListView: UITableViewController {
         super.init(nibName: nil, bundle: nil)
         
         title = "News"
-        tabBarItem = UITabBarItem(title: title, image: #imageLiteral(resourceName: "Today-tab"), tag: 0)
+        tabBarItem = UITabBarItem(title: title, image: #imageLiteral(resourceName: "Today-tab"), tag: 1)
     }
     
     required init?(coder: NSCoder) {
@@ -112,6 +112,8 @@ class NewsListView: UITableViewController {
         view.backgroundColor = .white
         navigationController?.navigationBar.prefersLargeTitles = true
         
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activityIndicator)
+        
         tableView.register(ArticleCell.self, forCellReuseIdentifier: headlineCellId)
         tableView.tableHeaderView = tableHeaderView
         tableView.separatorStyle = .none
@@ -133,7 +135,7 @@ class NewsListView: UITableViewController {
         
         view.addSubview(emptyStateModalView)
         view.addSubview(headlinesErrorModalView)
-        view.addSubview(activityIndicator)
+        //view.addSubview(activityIndicator)
     }
     
     private func setupLayout() {
@@ -154,9 +156,9 @@ class NewsListView: UITableViewController {
             make.bottom.equalToSuperview()
         }
         
-        activityIndicator.snp.makeConstraints { (make) in
-            make.center.equalToSuperview()
-        }
+//        activityIndicator.snp.makeConstraints { (make) in
+//            make.center.equalToSuperview()
+//        }
         
         emptyStateModalView.snp.makeConstraints { (make) in
             make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)

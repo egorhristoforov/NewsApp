@@ -14,6 +14,8 @@ class CategoryView: UITableViewController {
     
     private let cellId = "articleCellId"
     
+    private let searchController = UISearchController(searchResultsController: nil)
+    
     private let emptyStateModalView: ModalView = {
         let view = ModalView(title: "Empty news list", description: "An empty list of news was received. Perhaps the news will appear later.")
         
@@ -24,6 +26,12 @@ class CategoryView: UITableViewController {
         let view = ModalView(title: "Categories error", description: "An error was recieved. Try again later.", buttonText: "Retry")
         
         return view
+    }()
+    
+    private let customRefreshControl: UIRefreshControl = {
+        let refreshControl = UIRefreshControl()
+        
+        return refreshControl
     }()
     
     private let activityIndicator: UIActivityIndicatorView = {
@@ -48,9 +56,14 @@ class CategoryView: UITableViewController {
         
         tableView.separatorStyle = .none
         tableView.register(ArticleCell.self, forCellReuseIdentifier: cellId)
-        tableView.refreshControl = UIRefreshControl()
         tableView.dataSource = nil
         tableView.delegate = nil
+        
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activityIndicator)
+        
+        searchController.hidesNavigationBarDuringPresentation = false
+        searchController.obscuresBackgroundDuringPresentation = false
+        navigationItem.searchController = searchController
         
         setupViews()
         setupLayout()
@@ -68,16 +81,12 @@ class CategoryView: UITableViewController {
     }
     
     private func setupViews() {
+        tableView.addSubview(customRefreshControl)
         view.addSubview(emptyStateModalView)
         view.addSubview(errorModalView)
-        view.addSubview(activityIndicator)
     }
     
-    private func setupLayout() {
-        activityIndicator.snp.makeConstraints { (make) in
-            make.center.equalToSuperview()
-        }
-        
+    private func setupLayout() {        
         emptyStateModalView.snp.makeConstraints { (make) in
             make.width.equalToSuperview().offset(-LayoutConstants.modalViewMarginHorizontal)
             make.centerX.equalToSuperview()
@@ -131,15 +140,27 @@ class CategoryView: UITableViewController {
             .bind(to: viewModel.input.retry)
             .disposed(by: disposeBag)
         
-        if let refreshControl = refreshControl {
-            viewModel.output.refreshing
-                .drive(refreshControl.rx.isRefreshing)
-                .disposed(by: disposeBag)
-            
-            refreshControl.rx.controlEvent(.valueChanged)
-                .bind(to: viewModel.input.refresh)
-                .disposed(by: disposeBag)
-        }
+        viewModel.output.refreshing
+            .drive(customRefreshControl.rx.isRefreshing)
+            .disposed(by: disposeBag)
+        
+        customRefreshControl.rx.controlEvent(.valueChanged)
+            .bind(to: viewModel.input.refresh)
+            .disposed(by: disposeBag)
+        
+        let cancelSearch = searchController.searchBar.rx.cancelButtonClicked.map { _ in "" }
+        let searchTextChange = searchController.searchBar.rx.text.orEmpty.asObservable()
+
+        Observable.of(cancelSearch, searchTextChange)
+            .merge()
+            .debounce(RxTimeInterval.milliseconds(500), scheduler: MainScheduler.instance)
+            .distinctUntilChanged()
+            .bind(to: viewModel.input.searchText)
+            .disposed(by: disposeBag)
+        
+        tableView.rx.willBeginDragging.subscribe { [unowned self] _ in
+            searchController.searchBar.endEditing(true)
+        }.disposed(by: disposeBag)
     }
 }
 

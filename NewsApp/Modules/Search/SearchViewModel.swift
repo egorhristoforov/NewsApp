@@ -1,45 +1,37 @@
 //
-//  CategoryViewModel.swift
+//  SearchViewModel.swift
 //  NewsApp
 //
-//  Created by Egor on 14.09.2020.
+//  Created by Egor on 22.09.2020.
 //  Copyright © 2020 EgorHristoforov. All rights reserved.
 //
 
 import RxSwift
 import RxCocoa
-import RealmSwift
 
-class CategoryViewModel: ViewModel {
+class SearchViewModel: ViewModel {
     private let disposeBag = DisposeBag()
-    private let apiService = ApiService()
     private let database = DatabaseManager.instance
-    
-    let category: ArticleCategory
+    private let apiService = ApiService()
     
     // MARK: - Inputs
-    
     let input: Input
     
     struct Input {
-        let refresh: AnyObserver<Void>
-        let close: AnyObserver<Void>
-        let selectedArticle: AnyObserver<Article>
         let changeFavoriteStatus: AnyObserver<Article>
-        let retry: AnyObserver<Void>
+        let selectedArticle: AnyObserver<Article>
         let searchText: AnyObserver<String>
+        let refresh: AnyObserver<Void>
+        let retry: AnyObserver<Void>
     }
     
-    private let refreshSubject = PublishSubject<Void>()
+    let selectedArticle = PublishSubject<Article>()
     private let changeFavoriteStatusSubject = PublishSubject<Article>()
-    private let retrySubject = PublishSubject<Void>()
     private let searchTextSubject = PublishSubject<String>()
-    
-    let closeSubject = PublishSubject<Void>()
-    let selectedArticleSubject = PublishSubject<Article>()
+    private let refreshSubject = PublishSubject<Void>()
+    private let retrySubject = PublishSubject<Void>()
     
     // MARK: - Outputs
-    
     let output: Output
     
     struct Output {
@@ -51,22 +43,16 @@ class CategoryViewModel: ViewModel {
     }
     
     private let articlesSubject = BehaviorSubject<[Article]>(value: [])
-    private let isArticlesLoadingSubject = BehaviorSubject<Bool>(value: true)
+    private let isArticlesLoadingSubject = BehaviorSubject<Bool>(value: false)
     private let isArticlesRefreshingSubject = BehaviorSubject<Bool>(value: false)
     private let isArticlesLoadingErrorSubject = BehaviorSubject<Bool>(value: false)
     
-    init(category: ArticleCategory) {
-        self.category = category
-        
-        input = Input(refresh: refreshSubject.asObserver(),
-                      close: closeSubject.asObserver(),
-                      selectedArticle: selectedArticleSubject.asObserver(),
-                      changeFavoriteStatus: changeFavoriteStatusSubject.asObserver(),
-                      retry: retrySubject.asObserver(),
-                      searchText: searchTextSubject.asObserver())
-        
-        let refreshing = isArticlesRefreshingSubject
-            .asDriver(onErrorJustReturn: false)
+    init() {
+        input = Input(changeFavoriteStatus: changeFavoriteStatusSubject.asObserver(),
+                      selectedArticle: selectedArticle.asObserver(),
+                      searchText: searchTextSubject.asObserver(),
+                      refresh: refreshSubject.asObserver(),
+                      retry: retrySubject.asObserver())
         
         let articles = articlesSubject
             .asDriver(onErrorJustReturn: [])
@@ -74,8 +60,13 @@ class CategoryViewModel: ViewModel {
         let isArticlesLoading = isArticlesLoadingSubject
             .asDriver(onErrorJustReturn: false)
         
-        let isEmptyArticlesList = Observable.combineLatest(articlesSubject, isArticlesLoadingSubject, isArticlesLoadingErrorSubject)
-            .map { !$1 && !$2 && $0.count == 0 }
+        let searchText = searchTextSubject.startWith("")
+        
+        let isEmptyArticlesList = Observable.combineLatest(articlesSubject, isArticlesLoadingSubject, isArticlesLoadingErrorSubject, searchText)
+            .map { !$3.isEmpty() && !$1 && !$2 && $0.count == 0 }
+            .asDriver(onErrorJustReturn: false)
+        
+        let refreshing = isArticlesRefreshingSubject
             .asDriver(onErrorJustReturn: false)
         
         let isArticlesLoadingError = Observable.combineLatest(isArticlesLoadingSubject, isArticlesRefreshingSubject, isArticlesLoadingErrorSubject)
@@ -112,11 +103,16 @@ class CategoryViewModel: ViewModel {
             }).disposed(by: disposeBag)
         
         searchTextSubject
-            .do(onNext: { [unowned self] _ in
-                isArticlesLoadingSubject.onNext(true)
+            .do(onNext: { [unowned self] query in
+                if query.isEmpty() {
+                    articlesSubject.onNext([])
+                } else {
+                    isArticlesLoadingSubject.onNext(true)
+                }
             })
+            .filter { !$0.isEmpty() }
             .flatMap { [unowned self] query in
-                apiService.getCategoryArticles(category: category.name.lowercased(), query: query)
+                apiService.getArticlesBySearch(query: query)
                     .flatMap { articlesObject -> Observable<[Article]> in
                         guard articlesObject.status == "ok" else { throw ApiError.unknown }
                         return prepareArticles(from: articlesObject)
@@ -131,44 +127,43 @@ class CategoryViewModel: ViewModel {
         
         refreshSubject
             .withLatestFrom(searchTextSubject) { $1 }
-            .do { [unowned self] _ in
-                isArticlesRefreshingSubject.onNext(true)
-            }.flatMap { [unowned self] query in
-                apiService.getCategoryArticles(category: category.name.lowercased(), query: query)
-                    .flatMap { articlesObject -> Observable<[Article]> in
-                        guard articlesObject.status == "ok" else { throw ApiError.unknown }
-                        return prepareArticles(from: articlesObject)
-                    }
-            }.subscribe { [unowned self] articles in
-                articlesSubject.onNext(articles)
-                isArticlesRefreshingSubject.onNext(false)
-            } onError: { [unowned self] error in
-                isArticlesLoadingErrorSubject.onNext(true)
-                isArticlesRefreshingSubject.onNext(false)
-            }.disposed(by: disposeBag)
-        
-        retrySubject
-            .do { [unowned self] _ in
-                isArticlesLoadingSubject.onNext(true)
-            }.withLatestFrom(searchTextSubject) { $1 }
+            .do { [unowned self] query in
+                if query.isEmpty() {
+                    articlesSubject.onNext([])
+                    isArticlesRefreshingSubject.onNext(false)
+                } else {
+                    isArticlesRefreshingSubject.onNext(true)
+                }
+            }.filter { !$0.isEmpty() }
             .flatMap { [unowned self] query in
-                apiService.getCategoryArticles(category: category.name.lowercased(), query: query)
+                apiService.getArticlesBySearch(query: query)
                     .flatMap { articlesObject -> Observable<[Article]> in
                         guard articlesObject.status == "ok" else { throw ApiError.unknown }
                         return prepareArticles(from: articlesObject)
                     }
             }.subscribe { [unowned self] articles in
                 articlesSubject.onNext(articles)
-                isArticlesLoadingSubject.onNext(false)
+                isArticlesRefreshingSubject.onNext(false)
             } onError: { [unowned self] error in
                 isArticlesLoadingErrorSubject.onNext(true)
-                isArticlesLoadingSubject.onNext(false)
+                isArticlesRefreshingSubject.onNext(false)
             }.disposed(by: disposeBag)
-        
-        apiService.getCategoryArticles(category: category.name.lowercased())
-            .flatMap { [unowned self] articlesObject -> Observable<[Article]> in
-                guard articlesObject.status == "ok" else { throw ApiError.unknown }
-                return prepareArticles(from: articlesObject)
+
+        retrySubject
+            .withLatestFrom(searchTextSubject) { $1 }
+            .do { [unowned self] query in
+                if query.isEmpty() {
+                    articlesSubject.onNext([])
+                } else {
+                    isArticlesLoadingSubject.onNext(true)
+                }
+            }.filter { !$0.isEmpty() }
+            .flatMap { [unowned self] query in
+                apiService.getArticlesBySearch(query: query)
+                    .flatMap { articlesObject -> Observable<[Article]> in
+                        guard articlesObject.status == "ok" else { throw ApiError.unknown }
+                        return prepareArticles(from: articlesObject)
+                    }
             }.subscribe { [unowned self] articles in
                 articlesSubject.onNext(articles)
                 isArticlesLoadingSubject.onNext(false)
@@ -179,7 +174,7 @@ class CategoryViewModel: ViewModel {
     }
 }
 
-private extension CategoryViewModel {
+private extension SearchViewModel {
     func prepareArticles(from object: ArticlesObject) -> Observable<[Article]> {
         return Observable.just(object.articles.map{ Article(from: $0) })
             .withLatestFrom(database.favoriteArticles) { ($0, $1) }

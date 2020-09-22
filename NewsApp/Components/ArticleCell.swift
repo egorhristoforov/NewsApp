@@ -147,29 +147,12 @@ class ArticleCell: UITableViewCell {
         
         favoriteButton.setImage(article.isFavorite ? UIImage(named: "favorite") : UIImage(named: "not-favorite"), for: .normal)
         
-        if let url = article.urlToImage {
-            articleImageView.kf.setImage(with: URL(string: url), completionHandler:  { [weak self] result in
-                switch result {
-                case .success(_):
-                    break
-                case .failure(let error):
-                    switch error {
-                    case .responseError(reason: _), .requestError(reason: _):
-                        self?.articleImageView.image = UIImage(named: "placeholder")
-                    default:
-                        break
-                    }
-                }
-            })
+        if let link = article.urlToImage, let url = URL(string: link) {
+            articleImageView.kf.setImage(with: url)
         } else {
             articleImageView.image = UIImage(named: "placeholder")
         }
     }
-    
-    deinit {
-        print("deinit cell", self)
-    }
-
 }
 
 private extension ArticleCell {

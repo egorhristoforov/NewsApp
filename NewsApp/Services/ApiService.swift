@@ -15,8 +15,8 @@ import ObjectMapper
 protocol ApiServiceProtocol {
     func getTopHeadlines() -> Observable<ArticlesObject>
     func getSources() -> Observable<SourcesObject>
-    func getCategoryArticles(category: String) -> Observable<ArticlesObject>
-    func getSourceArticles(source: String) -> Observable<ArticlesObject>
+    func getCategoryArticles(category: String, query: String?) -> Observable<ArticlesObject>
+    func getSourceArticles(source: String, query: String?) -> Observable<ArticlesObject>
 }
 
 class ApiService: BaseApiService, ApiServiceProtocol {
@@ -37,16 +37,27 @@ class ApiService: BaseApiService, ApiServiceProtocol {
         return callAPIRequest(request: request)
     }
 
-    func getCategoryArticles(category: String) -> Observable<ArticlesObject> {
-        let request = APIRequest(path: baseURL + "/top-headlines", parameters: ["apiKey": apiKey, "language": "en", "category": category], encoding: URLEncoding.default)
+    func getCategoryArticles(category: String, query: String? = nil) -> Observable<ArticlesObject> {
+        var request = APIRequest(path: baseURL + "/top-headlines", parameters: ["apiKey": apiKey, "language": "en", "category": category], encoding: URLEncoding.default)
+        if let query = query {
+            request.parameters?["q"] = query
+        }
         return callAPIRequest(request: request)
     }
     
     /// Sends GET request to news api from given source
     /// - Parameter source: source id
     /// - Returns: Observable of the returned object
-    func getSourceArticles(source: String) -> Observable<ArticlesObject> {
-        let request = APIRequest(path: baseURL + "/everything", parameters: ["apiKey": apiKey, "language": "en", "sources": source], encoding: URLEncoding.default)
+    func getSourceArticles(source: String, query: String? = nil) -> Observable<ArticlesObject> {
+        var request = APIRequest(path: baseURL + "/everything", parameters: ["apiKey": apiKey, "language": "en", "sources": source], encoding: URLEncoding.default)
+        if let query = query {
+            request.parameters?["qInTitle"] = query
+        }
+        return callAPIRequest(request: request)
+    }
+    
+    func getArticlesBySearch(query: String) -> Observable<ArticlesObject> {
+        let request = APIRequest(path: baseURL + "/everything", parameters: ["apiKey": apiKey, "language": "en", "qInTitle": query], encoding: URLEncoding.default)
         return callAPIRequest(request: request)
     }
 }

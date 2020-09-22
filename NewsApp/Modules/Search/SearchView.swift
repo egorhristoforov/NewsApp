@@ -1,16 +1,16 @@
 //
-//  SourceView.swift
+//  SearchView.swift
 //  NewsApp
 //
-//  Created by Egor on 15.09.2020.
+//  Created by Egor on 22.09.2020.
 //  Copyright © 2020 EgorHristoforov. All rights reserved.
 //
 
 import RxSwift
 
-class SourceView: UITableViewController {
-    
-    private let viewModel: SourceViewModel
+class SearchView: UITableViewController {
+
+    private let viewModel: SearchViewModel
     private let disposeBag = DisposeBag()
     
     private let cellId = "articleCellId"
@@ -19,19 +19,12 @@ class SourceView: UITableViewController {
     
     private let emptyStateModalView: ModalView = {
         let view = ModalView(title: "Empty news list", description: "An empty list of news was received. Perhaps the news will appear later.")
-
-        return view
-    }()
-
-    private let errorModalView: ModalView = {
-        let view = ModalView(title: "Sources error", description: "An error was recieved. Try again later.", buttonText: "Retry")
-
+        
         return view
     }()
     
-    private let activityIndicator: UIActivityIndicatorView = {
-        let view = UIActivityIndicatorView(style: .gray)
-        view.hidesWhenStopped = true
+    private let errorModalView: ModalView = {
+        let view = ModalView(title: "Search error", description: "An error was recieved. Try again later.", buttonText: "Retry")
         
         return view
     }()
@@ -42,24 +35,37 @@ class SourceView: UITableViewController {
         return refreshControl
     }()
     
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
+    private let activityIndicator: UIActivityIndicatorView = {
+        let view = UIActivityIndicatorView(style: .gray)
+        view.hidesWhenStopped = true
         
-        viewModel.input.close.onNext(())
+        return view
+    }()
+    
+    init(viewModel: SearchViewModel) {
+        self.viewModel = viewModel
+        
+        super.init(nibName: nil, bundle: nil)
+        
+        title = "Search"
+        tabBarItem = UITabBarItem(title: title, image: #imageLiteral(resourceName: "Search-tab"), tag: 0)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
         
-        title = viewModel.source.name
+        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activityIndicator)
         
         tableView.separatorStyle = .none
         tableView.register(ArticleCell.self, forCellReuseIdentifier: cellId)
         tableView.dataSource = nil
         tableView.delegate = nil
-        
-        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: activityIndicator)
         
         searchController.hidesNavigationBarDuringPresentation = false
         searchController.obscuresBackgroundDuringPresentation = false
@@ -68,16 +74,6 @@ class SourceView: UITableViewController {
         setupViews()
         setupLayout()
         setupBindings()
-    }
-    
-    init(viewModel: SourceViewModel) {
-        self.viewModel = viewModel
-        
-        super.init(nibName: nil, bundle: nil)
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
     
     private func setupViews() {
@@ -101,29 +97,27 @@ class SourceView: UITableViewController {
     }
     
     private func setupBindings() {
-        viewModel.output.articles
-            .drive(tableView.rx.items) { [unowned self] tableView, index, article in
-                let indexPath = IndexPath(row: index, section: 0)
-                guard let cell = tableView.dequeueReusableCell(withIdentifier: self.cellId, for: indexPath) as? ArticleCell else { return UITableViewCell() }
-                cell.selectionStyle = .none
-                
-                cell.setupCell(article: article)
-
-                cell.favoriteButton.rx.tap
-                    .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
-                    .map({ _ in return article })
-                    .bind(to: self.viewModel.input.changeFavoriteStatus)
-                    .disposed(by: cell.disposeBag)
-                
-                return cell
-            }.disposed(by: disposeBag)
+        viewModel.output.articles.drive(tableView.rx.items) { [unowned self] tableView, index, article in
+            let indexPath = IndexPath(row: index, section: 0)
+            guard let cell = tableView.dequeueReusableCell(withIdentifier: self.cellId, for: indexPath) as? ArticleCell else { return UITableViewCell() }
+            cell.selectionStyle = .none
+            
+            cell.setupCell(article: article)
+            
+            cell.favoriteButton.rx.tap
+                .debounce(RxTimeInterval.milliseconds(100), scheduler: MainScheduler.instance)
+                .map({ _ in return article })
+                .bind(to: self.viewModel.input.changeFavoriteStatus)
+                .disposed(by: cell.disposeBag)
+            
+            return cell
+        }.disposed(by: disposeBag)
         
         viewModel.output.isArticlesLoading
             .drive(activityIndicator.rx.isAnimating)
             .disposed(by: disposeBag)
         
         tableView.rx.modelSelected(Article.self)
-            .debug()
             .bind(to: viewModel.input.selectedArticle)
             .disposed(by: disposeBag)
         
@@ -142,10 +136,12 @@ class SourceView: UITableViewController {
             .disposed(by: disposeBag)
         
         viewModel.output.refreshing
+            .debug()
             .drive(customRefreshControl.rx.isRefreshing)
             .disposed(by: disposeBag)
         
         customRefreshControl.rx.controlEvent(.valueChanged)
+            .debug()
             .bind(to: viewModel.input.refresh)
             .disposed(by: disposeBag)
         
@@ -162,15 +158,10 @@ class SourceView: UITableViewController {
         tableView.rx.willBeginDragging.subscribe { [unowned self] _ in
             searchController.searchBar.endEditing(true)
         }.disposed(by: disposeBag)
-
-    }
-    
-    override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        searchController.searchBar.endEditing(true)
     }
 }
 
-private extension SourceView {
+private extension SearchView {
     enum LayoutConstants {
         static let modalViewMarginTop = 20
         static let modalViewMarginHorizontal = 40

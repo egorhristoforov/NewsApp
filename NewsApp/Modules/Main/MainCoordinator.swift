@@ -20,18 +20,26 @@ class MainCoordinator: Coordinator<Void> {
         let newsListNavigationController = UINavigationController()
         let newsListCoordinator = NewsListCoordinator(navigationController: newsListNavigationController)
         
-        let favouritesNavigationController = UINavigationController()
-        let favouritesCoordinator = FavoritesCoordinator(navigationController: favouritesNavigationController)
+        let favoritesNavigationController = UINavigationController()
+        let favoritesCoordinator = FavoritesCoordinator(navigationController: favoritesNavigationController)
+        
+        let searchNavigationController = UINavigationController()
+        let searchCoordinator = SearchCoordinator(navigationController: searchNavigationController)
+        
+        coordinate(to: searchCoordinator)
+            .subscribe()
+            .disposed(by: disposeBag)
         
         coordinate(to: newsListCoordinator)
             .subscribe()
             .disposed(by: disposeBag)
 
-        coordinate(to: favouritesCoordinator)
+        coordinate(to: favoritesCoordinator)
             .subscribe()
             .disposed(by: disposeBag)
         
-        viewController.viewControllers = [newsListNavigationController, favouritesNavigationController]
+        viewController.viewControllers = [searchNavigationController, newsListNavigationController, favoritesNavigationController]
+        viewController.selectedIndex = 1
         
         return Observable.never()
     }
