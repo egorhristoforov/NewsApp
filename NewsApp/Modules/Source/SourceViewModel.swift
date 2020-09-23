@@ -116,14 +116,7 @@ class SourceViewModel: ViewModel {
         searchTextSubject
             .do(onNext: { [unowned self] _ in
                 isArticlesLoadingSubject.onNext(true)
-            }).do { [unowned self] query in
-                if query.isEmpty() {
-                    articlesSubject.onNext([])
-                } else {
-                    isArticlesLoadingSubject.onNext(true)
-                }
-            }.filter { !$0.isEmpty() }
-            .flatMap { [unowned self] query in
+            }).flatMap { [unowned self] query in
                 apiService.getSourceArticles(source: source.id, query: query)
                     .flatMap { articlesObject -> Observable<[Article]> in
                         guard articlesObject.status == "ok" else { throw ApiError.unknown }

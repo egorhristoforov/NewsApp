@@ -123,7 +123,6 @@ class SourceView: UITableViewController {
             .disposed(by: disposeBag)
         
         tableView.rx.modelSelected(Article.self)
-            .debug()
             .bind(to: viewModel.input.selectedArticle)
             .disposed(by: disposeBag)
         
@@ -162,11 +161,6 @@ class SourceView: UITableViewController {
         tableView.rx.willBeginDragging.subscribe { [unowned self] _ in
             searchController.searchBar.endEditing(true)
         }.disposed(by: disposeBag)
-
-    }
-    
-    override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        searchController.searchBar.endEditing(true)
     }
 }
 
